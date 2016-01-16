@@ -51,4 +51,4 @@ Allow for comparison between any two selected thumbnail pie chart.
 Show the differences in memory size and where that is. more complex style of diff may not be required.
 Play with it to see what's the best solution for this problem.
 
-[v1](https://cloud.githubusercontent.com/assets/899355/12369288/9822cba4-bc59-11e5-9957-b87b55ad8e3a.png)
+![v1](https://cloud.githubusercontent.com/assets/899355/12369288/9822cba4-bc59-11e5-9957-b87b55ad8e3a.png)
