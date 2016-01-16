@@ -1,0 +1,5 @@
+system, .data, .rodata, .heap, .stack, .bss
+teensy,1244,0,16384,2048,908
+unix,24,79952,0,0,1536
+stmhal,96,0,16384,2048,10124
+microbit-micropython,240,0,2048,0,11820
