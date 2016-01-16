@@ -52,3 +52,6 @@ Show the differences in memory size and wher ethat is. more complex styl eof dof
 
 Play with it to see what's the best solution for this problem.
 
+V1
+
+https://github.com/Neon22/micropython-examine-mem-maps/blob/master/screenshot-4mapfiles.png
