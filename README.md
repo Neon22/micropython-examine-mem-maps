@@ -52,4 +52,4 @@ Show the differences in memory size and wher ethat is. more complex styl eof dof
 
 Play with it to see what's the best solution for this problem.
 
-![alt tag](blob/master/screenshot-4mapfiles.png "V1")
+[https://cloud.githubusercontent.com/assets/899355/12369288/9822cba4-bc59-11e5-9957-b87b55ad8e3a.png]
