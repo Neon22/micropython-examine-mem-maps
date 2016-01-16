@@ -15,17 +15,16 @@ Allows several files to be processed at the same time and shown as thumbnail pie
 * These can be clicked on and refocus the main pie chart when selected.
 * When selected the main pie chart will morph between them and show byte sizes and percents.
 * This v1 is a starter to get the map files read, regions extracted and exported for displaying in D3 style.
-
 * The program read_maps_v1.py reads .map files and exports a csv.
  * List of map files is hardcoded.
  * Exports only the main regions listed in a variable called CATS.
-  * E.g. .bss, heap, .rodata, .text,...
+   * E.g. .bss, heap, .rodata, .text,...
 
 Its weak in several areas:
 * does not yet parse all the symbols but structure is there.
 * exports in csv only - needs to be a more complex json structure.
 * does not organise the parsed data into the Blocks.
-** E.g. in RAM block - which regions. and in each region - which symbols.
+ * E.g. in RAM block - which regions. and in each region - which symbols.
 
 ![v1](https://cloud.githubusercontent.com/assets/899355/12369288/9822cba4-bc59-11e5-9957-b87b55ad8e3a.png)
 
