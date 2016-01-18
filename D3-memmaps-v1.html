@@ -18,8 +18,11 @@ body {
   font-size: 10px;
 }
 .title {
+  overflow: hidden;
+  width:100%;
   font-style: bold;
   font-size: 2em;
+  padding: 2px 0px 8px 2px;
 }
 
 .units{
@@ -32,10 +35,14 @@ body {
 }
 
 svg {
-  padding: 10px 0 0 10px;
+  padding: 10px 0px 0px 10px;
+}
+.legend  {
+  float:left;
+  padding: 0px 2px 10px 0px
 }
 .pie {
-  padding: 10px 0px 10px 0px;
+  padding: 10px 2px 10px 2px;
 }
 .arc {
   stroke: #fff;
@@ -50,7 +57,10 @@ svg {
 // Thumbnail variables
 var thumb_radius = 90,
     thumb_ring = 30,
-    legend_box_width = 22;
+    legend_box_width = 22, // pixel width of sq colour box
+    legend_max_rows = 32,  // max rows in a legend col
+    legend_min_rows = 8,   // min rows before going multi-col
+    legend_max_text = 120; // width allocated to a legend text entry
 
 // Main donut chart variables
 var iwidth = 960,
@@ -98,6 +108,9 @@ d3.csv("mappings.csv", function(error, data) {
   });
   
   var dsize = data.length,
+      legend_size = data[0].sizes.length,
+      legend_row_count = Math.max(legend_min_rows, Math.min(Math.floor(legend_size/2) + 1, legend_max_rows)),
+      legend_width = Math.ceil(legend_size / legend_row_count),
       index = 0;
 
   // Screen Title
@@ -107,13 +120,15 @@ d3.csv("mappings.csv", function(error, data) {
   // Legend boxes
   var legend = d3.select("body").append("svg")
       .attr("class", "legend")
-      .attr("width", thumb_radius)
-      .attr("height", thumb_radius*2.5)
+      .attr("width", legend_width*legend_max_text)
+      .attr("height", (legend_box_width+2)*legend_row_count)
       .selectAll("g")
         .data(color.domain().slice())
       .enter().append("g")
         .attr("transform", function(d, i){
-            return "translate(0," + (i+1) * (legend_box_width+2) + ")"; });
+            xOff = Math.floor(i / legend_row_count) * legend_max_text
+            yOff = (i % legend_row_count) * (legend_box_width+2)
+            return "translate(" + xOff + "," + yOff + ")"; });
   legend.append("rect")
       .attr("width", legend_box_width)
       .attr("height", legend_box_width)  // square
@@ -126,30 +141,32 @@ d3.csv("mappings.csv", function(error, data) {
       .text(function(d) { return d; });
 
   // Thumbnail Ring Charts
-  var pie_thumb = d3.select("body").selectAll(".pie")
+  var pie_thumb = d3.select("body").append("div")
+    .attr("class", "thumbs");
+  var mypie = pie_thumb.selectAll(".thumbs")
       .data(data)
     .enter().append("svg")
       .attr("class", "pie")
       .attr("width",  thumb_radius*2)
       .attr("height", thumb_radius*2.2)
     .append("g")
-      .attr("transform", "translate(" + thumb_radius + "," + thumb_radius*1.1 + ")");
-  pie_thumb.append("svg:circle")
+      .attr("transform", "translate(" + thumb_radius + "," + thumb_radius*1.1 + ")")
+  mypie.append("svg:circle")
       .attr("fill", "ivory")
       .attr("r", thumb_radius)
       .on("click", update_main) // refocus main onto this thumb data
-  pie_thumb.append("text")
+  mypie.append("text")
       .attr("dy", ".35em")
       .style("text-anchor", "middle")
       .text(function(d) { return d.system; })
-  pie_thumb.selectAll(".arc")
+  mypie.selectAll(".arc")
       .data(function(d) { return thumb_pie(d.sizes); })
     .enter().append("path")
       .attr("class", "arc")
       .attr("d", thumb_arc)
       //.on("click", update_main)
       .attr("fill", function(d){ return color(d.data.label); })
-  pie_thumb.append("line")
+  mypie.append("line")
       .attr("x1", 0)
       .attr("x2", 0)
       .attr("y1", -thumb_radius)

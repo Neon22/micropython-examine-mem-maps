@@ -878,7 +878,7 @@ if __name__ == "__main__":
     collected_maps = [] # for json export
     regionlist = CATS
     maps = ["teensy_micropython_dh_01.map",
-            "unix_micropython_dh_01.map",
+            #"unix_micropython_dh_01.map",
             "stmhal_firmware_dh_01.map",
             "microbit-micropython_01.map"]
     #maps = ["microbit-micropython_01.map"]

@@ -18,8 +18,11 @@ body {
   font-size: 10px;
 }
 .title {
+  overflow: hidden;
+  width:100%;
   font-style: bold;
   font-size: 2em;
+  padding: 2px 0px 8px 2px;
 }
 
 .units{
@@ -32,10 +35,14 @@ body {
 }
 
 svg {
-  padding: 10px 0 0 10px;
+  padding: 10px 0px 0px 10px;
+}
+.legend  {
+  float:left;
+  padding: 0px 2px 10px 0px
 }
 .pie {
-  padding: 10px 0px 10px 0px;
+  padding: 10px 2px 10px 2px;
 }
 .arc {
   stroke: #fff;
@@ -50,10 +57,26 @@ svg {
 // Thumbnail variables
 var thumb_radius = 90,
     thumb_ring = 30,
-    legend_box_width = 22;
+    legend_box_width = 22, // pixel width of sq colour box
+    legend_max_rows = 32,  // max rows in a legend col
+    legend_min_rows = 8,   // min rows before going multi-col
+    legend_max_text = 120; // width allocated to a legend text entry
 
-// Main piechart variables
+// Main donut chart variables
+var iwidth = 960,
+    iheight = 450,
+    iringwidth = 66,
+    iradius = Math.min(iwidth, iheight) / 3,
+    tweenDuration = 1000,
+    // tick lines
+    tick_length = 20,
+    tick_offset = 8,
+    tick_width = 2,
+    // text
+    textOffset = 34;
 
+//--------------------------------
+// Thumbnail Donut Charts
 var color = d3.scale.ordinal()
     .range(["#999", "#0A0", "#A33", "#46B", "#DA6", "#D6A", "#0DD"]);
 
@@ -64,6 +87,10 @@ var thumb_arc = d3.svg.arc()
 var thumb_pie = d3.layout.pie()
     .value(function(d) { return d.memsize; })
     .sort(null);
+
+//--------------------------------
+// read the csv file.
+//  - rest in this scope
 
 d3.csv("mappings.csv", function(error, data) {
   // make color set from line of names (ignoring the system item)
@@ -81,6 +108,9 @@ d3.csv("mappings.csv", function(error, data) {
   });
   
   var dsize = data.length,
+      legend_size = data[0].sizes.length,
+      legend_row_count = Math.max(legend_min_rows, Math.min(Math.floor(legend_size/2) + 1, legend_max_rows)),
+      legend_width = Math.ceil(legend_size / legend_row_count),
       index = 0;
 
   // Screen Title
@@ -90,13 +120,15 @@ d3.csv("mappings.csv", function(error, data) {
   // Legend boxes
   var legend = d3.select("body").append("svg")
       .attr("class", "legend")
-      .attr("width", thumb_radius)
-      .attr("height", thumb_radius*2.5)
+      .attr("width", legend_width*legend_max_text)
+      .attr("height", (legend_box_width+2)*legend_row_count)
       .selectAll("g")
         .data(color.domain().slice())
       .enter().append("g")
         .attr("transform", function(d, i){
-            return "translate(0," + (i+1) * (legend_box_width+2) + ")"; });
+            xOff = Math.floor(i / legend_row_count) * legend_max_text
+            yOff = (i % legend_row_count) * (legend_box_width+2)
+            return "translate(" + xOff + "," + yOff + ")"; });
   legend.append("rect")
       .attr("width", legend_box_width)
       .attr("height", legend_box_width)  // square
@@ -109,30 +141,32 @@ d3.csv("mappings.csv", function(error, data) {
       .text(function(d) { return d; });
 
   // Thumbnail Ring Charts
-  var pie_thumb = d3.select("body").selectAll(".pie")
+  var pie_thumb = d3.select("body").append("div")
+    .attr("class", "thumbs");
+  var mypie = pie_thumb.selectAll(".thumbs")
       .data(data)
     .enter().append("svg")
       .attr("class", "pie")
       .attr("width",  thumb_radius*2)
       .attr("height", thumb_radius*2.2)
     .append("g")
-      .attr("transform", "translate(" + thumb_radius + "," + thumb_radius*1.1 + ")");
-  pie_thumb.append("svg:circle")
+      .attr("transform", "translate(" + thumb_radius + "," + thumb_radius*1.1 + ")")
+  mypie.append("svg:circle")
       .attr("fill", "ivory")
       .attr("r", thumb_radius)
       .on("click", update_main) // refocus main onto this thumb data
-  pie_thumb.append("text")
+  mypie.append("text")
       .attr("dy", ".35em")
       .style("text-anchor", "middle")
       .text(function(d) { return d.system; })
-  pie_thumb.selectAll(".arc")
+  mypie.selectAll(".arc")
       .data(function(d) { return thumb_pie(d.sizes); })
     .enter().append("path")
       .attr("class", "arc")
       .attr("d", thumb_arc)
       //.on("click", update_main)
       .attr("fill", function(d){ return color(d.data.label); })
-  pie_thumb.append("line")
+  mypie.append("line")
       .attr("x1", 0)
       .attr("x2", 0)
       .attr("y1", -thumb_radius)
@@ -151,389 +185,377 @@ d3.csv("mappings.csv", function(error, data) {
     render();
 
   };
-
-//-------------------------
-//------------------------- from 03
-var iwidth = 960,
-    iheight = 450,
-    iringwidth = 66,
-    iradius = Math.min(iwidth, iheight) / 3,
-    tweenDuration = 1000,
-    // lines
-    line_length = 20,
-    line_offset = 8,
-    tick_width = 2,
-    // text
-    textOffset = 34;
-
-//------------------
-// draw and append the SVG container
-var svg = d3.select("body").append("svg")
-  .attr("width", iwidth)
-  .attr("height", iheight)
-  .on("click", render);
-
-// create the pie chart container
-var ig = svg.append('g')
-  .attr('transform', function(){
-    if ( window.innerWidth >= iwidth ) var shiftWidth = iwidth / 2;
-    if ( window.innerWidth < iwidth ) var shiftWidth = iwidth / 3;
-    return 'translate(' + shiftWidth + ',' + iheight / 2 + ')';
-  });
-
-// create group for region labels(percent and label)
-var label_group = svg.append('g')
-  .attr("class", "label_group")
-  .attr("transform", function(){
-           return 'translate(' + iwidth/2 + ',' + iheight/2 + ')';
-       });
-   
-// create group for center text  
-var center_group = svg.append('g')
-  .attr("class", "center_group")
-  .attr("transform", function(){
-           return 'translate(' + iwidth/2 + ',' + iheight/2 + ')';
-       });
-
-
-//------------------
-// generate random data
-var mydata = data[index];
-console.log("mydata ",mydata);
-//mydata = mydata.sizes.filter(function(key){ return !(key == "system" || key.memsize == 0); });
-mydata = mydata.sizes.filter(function(key){ return !(key == "system"); });
-var system = data[index].system;
-var totalRAM = data[index].total;
-//console.log("initial",mydata);
-
-function makeData(size){
-  return d3.range(size).map(function(item){
-     val = Math.floor(Math.random()*100000); // simulate kB
-     totalRAM += val
-     return { memsize:  val,
-              label: ".bss"
-            };
-     });
-};
-
-
-//------------------
-//Helper functions to position elements
-// percentages are above labels
-percent_dy = function(d){
-        if ((d.startAngle+d.endAngle)/2 > Math.PI/2 && (d.startAngle+d.endAngle)/2 < Math.PI*1.5 ) {
-            return 5;
-        } else {
-            return -7;  }};
-// labels are below percentages (dy)
-label_dy = function(d){
-        if ((d.startAngle+d.endAngle)/2 > Math.PI/2 && (d.startAngle+d.endAngle)/2 < Math.PI*1.5 ) {
-            return 17;
-        } else {
-            return 5;  }};
-// all text is aligned based on which side of circle
-text_anchor = function(d){
-        if ((d.startAngle+d.endAngle)/2 < Math.PI ) {
-            return "beginning";
-        } else {
-            return "end";  }};
-// all text main position (dy separates different fields)
-text_position = function(d){
-        return "translate(" + Math.cos(((d.startAngle+d.endAngle - Math.PI)/2)) * (iradius+textOffset) + "," +
-                              Math.sin((d.startAngle+d.endAngle - Math.PI)/2) * (iradius+textOffset) + ")"; };
-// text percent and size
-percent_label = function(d){
-        var percentage = (d.data.memsize/totalRAM)*100;
-		// don't print anything if value==0
-        return (percentage==0)? "" : d.data.memsize + " bytes (" + percentage.toFixed(1) + "%)";
-      }
-
-//------------------
-// shape and style of D3 graph
-
-// construct default pie layout
-var main_pie = d3.layout.pie()
-    .value(function(d){ return d.memsize; })
-    .sort(null);
-
-// construct arc generator
-var iarc = d3.svg.arc()
-  .outerRadius(iradius)
-  .innerRadius(iradius - iringwidth);
   
-//------------------
-// initial types of things
+  //--------------------------------
+  // draw and append the SVG container
+  var svg = d3.select("body").append("svg")
+    .attr("width", iwidth)
+    .attr("height", iheight)
+    .on("click", render);
 
-// make initial paths
-var ipath = ig.datum(mydata).selectAll("path")
-  .data(main_pie)
-  .enter().append("path")
-    .attr("class","arc")
-    .attr("fill", function(d,i){ return color(d.data.label); })
-    .attr("d", iarc)
-    //.on("click", function() {d3.select(this).attr("fill", "#5F6");})
-    .each(function(d){ this._current = d; });
+  // create the pie chart container
+  var ig = svg.append('g')
+    .attr('transform', function(){
+      if ( window.innerWidth >= iwidth ) var shiftWidth = iwidth / 2;
+      if ( window.innerWidth < iwidth ) var shiftWidth = iwidth / 3;
+      return 'translate(' + shiftWidth + ',' + iheight / 2 + ')';
+    });
 
-// make initial tickmarks
-var itick = label_group.datum(mydata).selectAll("line")
-  .data(main_pie)
-  .enter().append("svg:line")
-    .attr("class", "tick")
-    .attr("x1", 0)
-    .attr("x2", 0)
-    // don't draw tick marks if value==0
-    .attr("y1", function(d) {return (d.value==0) ? 0 : -iradius-line_offset})
-    .attr("y2", function(d) {return (d.value==0) ? 0 : -iradius-(line_length+line_offset) })
-    .attr("stroke", "gray")
-    .attr("transform", function(d) {
-        return "rotate(" + (d.startAngle+d.endAngle)/2 * (180/Math.PI) + ")";
-         })
-    .each(function(d){ this._current = d; });
-
-// make initial text labels
-var ilabel = label_group.datum(mydata).selectAll("text.units")
-  .data(main_pie)
-  .enter().append("svg:text")
-    .attr("class", "units")
-    .attr("transform", text_position)
-    .attr("dy", label_dy)
-    .attr("text-anchor", text_anchor)
-    .text(function(d){
-         // don't draw percents if value==0
-         return (d.value==0) ? "" : d.data.label;})
-    .each(function(d){ this._current = d; });
+  // create group for region labels(percent and label)
+  var label_group = svg.append('g')
+    .attr("class", "label_group")
+    .attr("transform", function(){
+             return 'translate(' + iwidth/2 + ',' + iheight/2 + ')';
+         });
+     
+  // create group for center text  
+  var center_group = svg.append('g')
+    .attr("class", "center_group")
+    .attr("transform", function(){
+             return 'translate(' + iwidth/2 + ',' + iheight/2 + ')';
+         });
 
 
-// make initial percentages
-var ipercent = label_group.datum(mydata).selectAll("text.value")
-  .data(main_pie)
-  .enter().append("svg:text")
-    .attr("class", "value")
-    .attr("transform", text_position)
-    .attr("dy", percent_dy)
-    .attr("text-anchor", text_anchor)
-    .text(percent_label)
-    .each(function(d){ this._current = d; });
+  //--------------------------------
+  // generate random data
+  var mydata = data[index];
+  console.log("mydata ",mydata);
+  //mydata = mydata.sizes.filter(function(key){ return !(key == "system" || key.memsize == 0); });
+  mydata = mydata.sizes.filter(function(key){ return !(key == "system"); });
+  var system = data[index].system;
+  var totalRAM = data[index].total;
+  //console.log("initial",mydata);
+  function makeData(size){
+    return d3.range(size).map(function(item){
+       val = Math.floor(Math.random()*100000); // simulate kB
+       totalRAM += val
+       return { memsize:  val,
+                label: ".bss"
+              };
+       });
+  };
 
-// make central text
-//  - White BG circle behind text
-var whiteCircle = center_group.append("svg:circle")
-  .attr("fill", "ivory")
-  .attr("r", iradius-iringwidth);
-//  - machine
-var machineName = center_group.append("svg:text")
-  .attr("class", "machine")
-  .attr("dy", -15)
-  .attr("text-anchor", "middle")
-  .text(system);  
-//  - how much RAM
-var totalLabel = center_group.append("svg:text")
-  .attr("class", "label")
-  .attr("dy", 7)
-  .attr("text-anchor", "middle")
-  .text("TOTAL");
-//  - for selection info or something...
-var field_info = center_group.append("svg:text")
-  .attr("class", "info")
-  .attr("dy", 33)
-  .attr("text-anchor", "middle")
-  .text("............");
-// vertical start mem marker
-var izeromarker = center_group.append("line")
+
+  //--------------------------------
+  //Helper functions to position elements
+  // percentages are above labels
+  percent_dy = function(d){
+          if ((d.startAngle+d.endAngle)/2 > Math.PI/2 && (d.startAngle+d.endAngle)/2 < Math.PI*1.5 ) {
+              return 5;
+          } else {
+              return -7;  }};
+  // labels are below percentages (dy)
+  label_dy = function(d){
+          if ((d.startAngle+d.endAngle)/2 > Math.PI/2 && (d.startAngle+d.endAngle)/2 < Math.PI*1.5 ) {
+              return 17;
+          } else {
+              return 5;  }};
+  // all text is aligned based on which side of circle
+  text_anchor = function(d){
+          if ((d.startAngle+d.endAngle)/2 < Math.PI ) {
+              return "beginning";
+          } else {
+              return "end";  }};
+  // all text main position (dy separates different fields)
+  text_position = function(d){
+          return "translate(" + Math.cos(((d.startAngle+d.endAngle - Math.PI)/2)) * (iradius+textOffset) + "," +
+                                Math.sin((d.startAngle+d.endAngle - Math.PI)/2) * (iradius+textOffset) + ")"; };
+  // text percent and size
+  percent_label = function(d){
+          var percentage = (d.data.memsize/totalRAM)*100;
+          // don't print anything if value==0
+          return (percentage==0)? "" : d.data.memsize + " bytes (" + percentage.toFixed(1) + "%)";
+        }
+
+  //--------------------------------
+  // shape and style of D3 graph
+
+  // construct default pie layout
+  var main_pie = d3.layout.pie()
+      .value(function(d){ return d.memsize; })
+      .sort(null);
+
+  // construct arc generator
+  var iarc = d3.svg.arc()
+    .outerRadius(iradius)
+    .innerRadius(iradius - iringwidth);
+      
+  //--------------------------------
+  // initial types of things
+
+  // make initial paths
+  var ipath = ig.datum(mydata).selectAll("path")
+    .data(main_pie)
+    .enter().append("path")
+      .attr("class","arc")
+      .attr("fill", function(d,i){ return color(d.data.label); })
+      .attr("d", iarc)
+      //.on("click", function() {d3.select(this).attr("fill", "#5F6");})
+      .each(function(d){ this._current = d; });
+
+  // make initial tickmarks
+  var itick = label_group.datum(mydata).selectAll("line")
+    .data(main_pie)
+    .enter().append("svg:line")
+      .attr("class", "tick")
       .attr("x1", 0)
       .attr("x2", 0)
-      .attr("y1", -iradius)
-      .attr("y2", -iradius-line_length)
-      .attr("stroke", "black")
-      .attr("stroke-width", 2)
-  
-//------------------
-// render function for displaying pie chart and all components
-function render(){
-  // generate new random data
-  //mydata = data[index].sizes.filter(function(key){ return !(key == "system" || key.memsize == 0); });
-  mydata = data[index].sizes.filter(function(key){ return !(key == "system"); });
-  system = data[index].system;
-  totalRAM = data[index].total;
-  //console.log("mydata ",mydata);
-  // Update central region
-  machineName.text(function(){
-      return system;   })
-  totalLabel.text(function(){
-      var kb = totalRAM/1024;
-      //return "Total: " + kb.toFixed(1) + " kB";  })
-      return "Total: " + totalRAM + " bytes";  })
-  
+      // don't draw tick marks if value==0
+      .attr("y1", function(d) {return (d.value==0) ? 0 : -iradius-tick_offset})
+      .attr("y2", function(d) {return (d.value==0) ? 0 : -iradius-(tick_length+tick_offset) })
+      .attr("stroke", "gray")
+      .attr("transform", function(d) {
+          return "rotate(" + (d.startAngle+d.endAngle)/2 * (180/Math.PI) + ")";
+           })
+      .each(function(d){ this._current = d; });
+
+  // make initial text labels
+  var ilabel = label_group.datum(mydata).selectAll("text.units")
+    .data(main_pie)
+    .enter().append("svg:text")
+      .attr("class", "units")
+      .attr("transform", text_position)
+      .attr("dy", label_dy)
+      .attr("text-anchor", text_anchor)
+      .text(function(d){
+           // don't draw percents if value==0
+           return (d.value==0) ? "" : d.data.label;})
+      .each(function(d){ this._current = d; });
+
+  // make initial percentages
+  var ipercent = label_group.datum(mydata).selectAll("text.value")
+    .data(main_pie)
+    .enter().append("svg:text")
+      .attr("class", "value")
+      .attr("transform", text_position)
+      .attr("dy", percent_dy)
+      .attr("text-anchor", text_anchor)
+      .text(percent_label)
+      .each(function(d){ this._current = d; });
+
+  // make central text
+  //  - White BG circle behind text
+  var whiteCircle = center_group.append("svg:circle")
+    .attr("fill", "ivory")
+    .attr("r", iradius-iringwidth);
+  //  - machine
+  var machineName = center_group.append("svg:text")
+    .attr("class", "machine")
+    .attr("dy", -15)
+    .attr("text-anchor", "middle")
+    .text(system);  
+  //  - how much RAM
+  var totalLabel = center_group.append("svg:text")
+    .attr("class", "label")
+    .attr("dy", 7)
+    .attr("text-anchor", "middle")
+    .text("TOTAL");
+  //  - for selection info or something...
+  var field_info = center_group.append("svg:text")
+    .attr("class", "info")
+    .attr("dy", 33)
+    .attr("text-anchor", "middle")
+    .text("............");
+  // vertical start mem marker
+  var izeromarker = center_group.append("line")
+        .attr("x1", 0)
+        .attr("x2", 0)
+        .attr("y1", -iradius)
+        .attr("y2", -iradius-tick_length)
+        .attr("stroke", "black")
+        .attr("stroke-width", 2)
+      
+  //--------------------------------
+  // render function for displaying pie chart and all components
+  function render(){
+    // generate new random data
+    //mydata = data[index].sizes.filter(function(key){ return !(key == "system" || key.memsize == 0); });
+    mydata = data[index].sizes.filter(function(key){ return !(key == "system"); });
+    system = data[index].system;
+    totalRAM = data[index].total;
+    //console.log("mydata ",mydata);
+    // Update central region
+    machineName.text(function(){
+        return system;   })
+    totalLabel.text(function(){
+        var kb = totalRAM/1024;
+        //return "Total: " + kb.toFixed(1) + " kB";  })
+        return "Total: " + totalRAM + " bytes";  })
+      
 
   //Draw Paths
   // new - add any new paths
   ig.datum(mydata).selectAll("path")
-    .data(main_pie)
-  .enter().append("path")
-    .attr("class","arc")
-    .attr("fill", function(d,i){return color(d.data.label); })
-    .attr("d", iarc)
-    .each(function(d){ this._current = d; })
-  // transition - add transition to new path
-  ig.datum(mydata).selectAll("path")
-     .data(main_pie)
-  .transition()
-     .duration(tweenDuration)
-     .attrTween("d", arcTween)
-  // exit - remove data not being used
-  ig.datum(mydata).selectAll("path")
-    .data(main_pie)
-  .exit().remove()
-  
-  //Draw Tick lines for Labels
-  // new
-  label_group.datum(mydata).selectAll("line")
-    .data(main_pie)
-  .enter().append("svg:line")
-      .attr("x1", 0)
-      .attr("x2", 0)
-      // don't draw tick marks if value==0
-      .attr("y1", function(d) {return (d.value==0) ? 0 : -iradius-line_offset})
-      .attr("y2", function(d) {return (d.value==0) ? 0 : -iradius-(line_length+line_offset) })
-      .attr("stroke", "gray")
-      .attr("stroke-width", tick_width)
-      .attr("transform", function(d) {
-        return "rotate(" + (d.startAngle+d.endAngle)/2 * (180/Math.PI) + ")";
-      })
-      //.each(function(d){ this._current = d; })
-  // transition
-  label_group.datum(mydata).selectAll("line")
-    .data(main_pie)
-  .transition()
-    .duration(tweenDuration)
-    .attrTween("transform", lineTween)
-	.attrTween("stroke-width", strokeTween)
-  // exit
-  label_group.datum(mydata).selectAll("line")
-    .data(main_pie)
-  .exit().remove()
-  
-  //Draw Label Names
-  label_group.datum(mydata).selectAll("text.units")
-    .data(main_pie)
-    .attr("dy", label_dy)
-    .attr("text-anchor", text_anchor)
-    .text(function(d){
-            // don't draw Names if value==0
-            return (d.value==0) ? "" : d.data.label;
-         })
-  // new
-  label_group.datum(mydata).selectAll("text.units")
-    .data(main_pie)
-  .enter().append("svg:text")
-    .attr("class", "units")
-    .attr("transform", text_position)
-    .attr("dy", label_dy)
-    .attr("text-anchor", text_anchor)
-    // don't draw label if value==0
-    .text(function(d){return (d.value==0) ? "" : d.data.label;  })
-    .each(function(d){ this._current = d; })
-  // transition
-  label_group.datum(mydata).selectAll("text.units")
-    .data(main_pie)
-  .transition()
-    .duration(tweenDuration)
-    .attrTween("transform", textTween)
-  // exit
-  label_group.datum(mydata).selectAll("text.units")
-    .data(main_pie)
-  .exit().remove()
-  
-  //Draw section percentages
-  label_group.datum(mydata).selectAll("text.value")
-    .data(main_pie)
-  .attr("dy", percent_dy)
-  .attr("text-anchor", text_anchor)
-  .text(percent_label)
-  // new
-  label_group.datum(mydata).selectAll("text.value")
-    .data(main_pie)
-  .enter().append("svg:text")
-    .attr("class", "value")
-    .attr("transform", text_position)
+      .data(main_pie)
+    .enter().append("path")
+      .attr("class","arc")
+      .attr("fill", function(d,i){return color(d.data.label); })
+      .attr("d", iarc)
+      .each(function(d){ this._current = d; })
+    // transition - add transition to new path
+    ig.datum(mydata).selectAll("path")
+       .data(main_pie)
+    .transition()
+       .duration(tweenDuration)
+       .attrTween("d", arcTween)
+    // exit - remove data not being used
+    ig.datum(mydata).selectAll("path")
+      .data(main_pie)
+    .exit().remove()
+      
+    //Draw Tick lines for Labels
+    // new
+    label_group.datum(mydata).selectAll("line")
+      .data(main_pie)
+    .enter().append("svg:line")
+        .attr("x1", 0)
+        .attr("x2", 0)
+        // don't draw tick marks if value==0
+        .attr("y1", function(d) {return (d.value==0) ? 0 : -iradius-tick_offset})
+        .attr("y2", function(d) {return (d.value==0) ? 0 : -iradius-(tick_length+tick_offset) })
+        .attr("stroke", "gray")
+        .attr("stroke-width", tick_width)
+        .attr("transform", function(d) {
+          return "rotate(" + (d.startAngle+d.endAngle)/2 * (180/Math.PI) + ")";
+        })
+        //.each(function(d){ this._current = d; })
+    // transition
+    label_group.datum(mydata).selectAll("line")
+      .data(main_pie)
+    .transition()
+      .duration(tweenDuration)
+      .attrTween("transform", lineTween)
+      .attrTween("stroke-width", strokeTween)
+    // exit
+    label_group.datum(mydata).selectAll("line")
+      .data(main_pie)
+    .exit().remove()
+      
+    //Draw Label Names
+    label_group.datum(mydata).selectAll("text.units")
+      .data(main_pie)
+      .attr("dy", label_dy)
+      .attr("text-anchor", text_anchor)
+      .text(function(d){
+              // don't draw Names if value==0
+              return (d.value==0) ? "" : d.data.label;
+           })
+    // new
+    label_group.datum(mydata).selectAll("text.units")
+      .data(main_pie)
+    .enter().append("svg:text")
+      .attr("class", "units")
+      .attr("transform", text_position)
+      .attr("dy", label_dy)
+      .attr("text-anchor", text_anchor)
+      // don't draw label if value==0
+      .text(function(d){return (d.value==0) ? "" : d.data.label;  })
+      .each(function(d){ this._current = d; })
+    // transition
+    label_group.datum(mydata).selectAll("text.units")
+      .data(main_pie)
+    .transition()
+      .duration(tweenDuration)
+      .attrTween("transform", textTween)
+    // exit
+    label_group.datum(mydata).selectAll("text.units")
+      .data(main_pie)
+    .exit().remove()
+      
+    //Draw section percentages
+    label_group.datum(mydata).selectAll("text.value")
+      .data(main_pie)
     .attr("dy", percent_dy)
     .attr("text-anchor", text_anchor)
     .text(percent_label)
-    .each(function(d){ this._current = d; })
-//-----
-//var text = d3.select("text");
-//var bbox = text.node().getBBox();
-//var padding = 2;
-//var rect = self.svg.insert("rect", "text")
-//    .attr("x", bbox.x - padding)
-//    .attr("y", bbox.y - padding)
-//    .attr("width", bbox.width + (padding*2))
-//    .attr("height", bbox.height + (padding*2))
-//    .style("fill", "red");
-//-----
-  // transition
-  label_group.datum(mydata).selectAll("text.value")
-    .data(main_pie)
-  .transition()
-    .duration(tweenDuration)
-    .attrTween("transform", textTween)
-  // exit
-  label_group.datum(mydata).selectAll("text.value")
-    .data(main_pie)
-  .exit().remove()
+    // new
+    label_group.datum(mydata).selectAll("text.value")
+      .data(main_pie)
+    .enter().append("svg:text")
+      .attr("class", "value")
+      .attr("transform", text_position)
+      .attr("dy", percent_dy)
+      .attr("text-anchor", text_anchor)
+      .text(percent_label)
+      .each(function(d){ this._current = d; })
+  //--------------------------------
+  // in case text needs a BG
+  //
+  //var text = d3.select("text");
+  //var bbox = text.node().getBBox();
+  //var padding = 2;
+  //var rect = self.svg.insert("rect", "text")
+  //    .attr("x", bbox.x - padding)
+  //    .attr("y", bbox.y - padding)
+  //    .attr("width", bbox.width + (padding*2))
+  //    .attr("height", bbox.height + (padding*2))
+  //    .style("fill", "red");
+  //--------------------------------
+    // transition
+    label_group.datum(mydata).selectAll("text.value")
+      .data(main_pie)
+    .transition()
+      .duration(tweenDuration)
+      .attrTween("transform", textTween)
+    // exit
+    label_group.datum(mydata).selectAll("text.value")
+      .data(main_pie)
+    .exit().remove()
 
-  
-};
+      
+  };
 
-render();
+  render();
 
 
-//------------------
-// Tween functions
+  //--------------------------------
+  // Tween functions
 
-// Store the displayed angles in this._current (Object, not just a number)
-// Then, interpolate from _current to the new angles
-// During the transition, _current is updated in-place by d3.interpolate
-function arcTween(a) {
-  //console.log(a.value,a);
-  var i = d3.interpolate(this._current, a);
-  this._current = i(0);
-  return function(t) {
-    return iarc(i(t));
+  // Store the displayed angles in this._current (Object, not just a number)
+  // Then, interpolate from _current to the new angles
+  // During the transition, _current is updated in-place by d3.interpolate
+  function arcTween(a) {
+    //console.log(a.value,a);
+    var i = d3.interpolate(this._current, a);
+    this._current = i(0);
+    return function(t) {
+      return iarc(i(t));
+    }
   }
-}
 
-//
-function lineTween(a)  {
-  //console.log(a);
-  var i = d3.interpolate(this._current, a);
-  this._current = i(0);
-  return function(t) {
-    //console.log(i(t).startAngle,i(t).endAngle,(i(t).startAngle+i(t).endAngle)/2 * (180/Math.PI));
-    return "rotate(" + (i(t).startAngle+i(t).endAngle)/2 * (180/Math.PI) + ")";
+  //
+  function lineTween(a)  {
+    //console.log(a);
+    var i = d3.interpolate(this._current, a);
+    this._current = i(0);
+    return function(t) {
+      //console.log(i(t).startAngle,i(t).endAngle,(i(t).startAngle+i(t).endAngle)/2 * (180/Math.PI));
+      return "rotate(" + (i(t).startAngle+i(t).endAngle)/2 * (180/Math.PI) + ")";
+    }
   }
-}
-function strokeTween(a)  { // don't need to interpolate, just check dest value
-  //console.log(a);
-  return function(t) {
-    // if value==0 then hide else visible
-    return (a.value==0) ? 0 : tick_width;
+  function strokeTween(a)  { // don't need to interpolate, just check dest value
+    //console.log(a);
+    return function(t) {
+      // if value==0 then hide else visible
+      return (a.value==0) ? 0 : tick_width;
+    }
   }
-}
 
-function textTween(a) {
-  //console.log(a);
-  var i = d3.interpolate(this._current, a);
-  this._current = i(0);
-  return function(t) {
-	var val = (i(t).startAngle + i(t).endAngle - Math.PI)/2;
-	//console.log("at ", val, val*360);
-    return "translate(" + Math.cos(val) * (iradius+textOffset) + "," + Math.sin(val) * (iradius+textOffset) + ")";
+  function textTween(a) {
+    //console.log(a);
+    var i = d3.interpolate(this._current, a);
+    this._current = i(0);
+    return function(t) {
+      var val = (i(t).startAngle + i(t).endAngle - Math.PI)/2;
+      //console.log("at ", val, val*360);
+      return "translate(" + Math.cos(val) * (iradius+textOffset) + "," + Math.sin(val) * (iradius+textOffset) + ")";
+    }
   }
-}
 
+//--------------------------------
+// Notes:
 // try with all fields found in map program
-// separate crowding (BG?)
+// separate crowding (BG behind text, vertically stack, keep track :()
 // add table LHS of Main chart. list all fields, hex, dec
 
 });
